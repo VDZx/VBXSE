@@ -11,9 +11,9 @@ using Microsoft.Xna.Framework.Media;
 using System.IO;
 
 /*
- * VDZ's Basic XNA Sprite Engine - A sprite engine for XNA 4.0 (version 2)
+ * VDZ's Basic XNA Sprite Engine - A sprite engine for XNA 4.0 (version 3)
 
-    Written in 2012 by Vincent de Zwaan
+    Written in 2012-2013 by Vincent de Zwaan
 
     To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide. This software is distributed without any warranty. 
 
@@ -75,6 +75,20 @@ namespace VBXSE
 
         //Set this to true to show the framerate in the top left corner.
         public static bool showFPS = false;
+
+        //By default, GTexts are unaffected by the camera position. Enable this to also make GTexts camera-dependent.
+        public static bool unlockGTextPositions = false;
+
+        //If enabled, it will only render GObjects with (X, Y) on the screen or within bleed range.
+        public static bool drawOnlyOnScreen = false;
+        public static Vector2 drawOnlyOnScreenBleed = Vector2.Zero;
+        
+        //Spritebatch options
+        public static SpriteSortMode spriteSortMode = SpriteSortMode.Deferred;
+        public static BlendState blendState = BlendState.AlphaBlend;
+        public static SamplerState samplerState = SamplerState.LinearClamp;
+        public static DepthStencilState depthStencilState = DepthStencilState.None;
+        public static RasterizerState rasterizerState = RasterizerState.CullCounterClockwise;
 
         //Internal variables
         private static string[] logText;
@@ -142,6 +156,14 @@ namespace VBXSE
         public static Sprite CreateSprite(string texture, Vector2 position)
         {
             return CreateSprite(texture, position, 1.0f);
+        }
+
+        //This one doesn't use the texture dictionary.
+        public static Sprite CreateSprite(Texture2D tex, int x = 0, int y = 0)
+        {
+            Sprite sprite = new Sprite(tex, new Vector2(x, y));
+            gObjects.Add(sprite);
+            return sprite;
         }
 
         //Creates a sprite with multiple images. Can be used for animation, different states, etc.
@@ -219,7 +241,7 @@ namespace VBXSE
         //  It also allows you to only draw GObjects between a minimum/maximum depth.
         public static void DrawGObjects(float minimumDepth, float maximumDepth)
         {
-            spriteBatch.Begin();
+            spriteBatch.Begin(spriteSortMode, blendState, samplerState, depthStencilState, rasterizerState);
 
             List<GObject> renderableObjects = new List<GObject>();
             if (loading) renderableObjects = loadingGObjects;
@@ -233,14 +255,46 @@ namespace VBXSE
             {
                 if (renderableObjects[i] != null)
                 {
-                    if (renderableObjects[i].depth < minimumDepth) i = renderableObjects.Count;
-                    else
+                    bool allowDraw = true;
+
+                    if (drawOnlyOnScreen)
                     {
-                        if (renderableObjects[i].depth < maximumDepth)
+                        allowDraw = false;
+
+                        if (renderableObjects[i] is Sprite)
                         {
-                            if (renderableObjects[i].enabled)
+                            if (((Sprite)renderableObjects[i]).positionLocked) allowDraw = true;
+                        }
+
+                        if (!allowDraw)
+                        {
+                            if (renderableObjects[i].position.X >= cameraOffsetX - drawOnlyOnScreenBleed.X)
                             {
-                                (renderableObjects[i]).Draw(spriteBatch);
+                                if (renderableObjects[i].position.X <= cameraOffsetX + DEFAULT_WIDTH + drawOnlyOnScreenBleed.X)
+                                {
+                                    if (renderableObjects[i].position.Y >= cameraOffsetY - drawOnlyOnScreenBleed.Y)
+                                    {
+                                        if (renderableObjects[i].position.Y <= cameraOffsetY + DEFAULT_WIDTH + drawOnlyOnScreenBleed.Y)
+                                        {
+                                            allowDraw = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (allowDraw)
+                    {
+                        if (renderableObjects[i].depth < minimumDepth) i = renderableObjects.Count;
+                        else
+                        {
+                            if (renderableObjects[i].depth < maximumDepth)
+                            {
+                                if (renderableObjects[i].enabled)
+                                {
+                                    (renderableObjects[i]).Draw(spriteBatch);
+                                }
                             }
                         }
                     }

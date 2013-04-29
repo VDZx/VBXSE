@@ -23,6 +23,7 @@ namespace VBXSE
     {
         public string text; //The text to display.
         public Color color = Color.White; //The color of the text.
+        public bool positionLocked = true; //Set to false to make text move with camera.
 
         public GText(string text)
         {
@@ -47,9 +48,18 @@ namespace VBXSE
         //Draws the text.
         public override void Draw(SpriteBatch spriteBatch)
         {
+            float usedCameraX = 0;
+            float usedCameraY = 0;
+
+            if (SpriteEngine.unlockGTextPositions || !positionLocked)
+            {
+                usedCameraX = -SpriteEngine.cameraOffsetX;
+                usedCameraY = -SpriteEngine.cameraOffsetY;
+            }
+
             spriteBatch.DrawString(SpriteEngine.spriteFont, text,
-                new Vector2(position.X * SpriteEngine.GetDefaultScaleX(),
-                    position.Y * SpriteEngine.GetDefaultScaleY())
+                new Vector2((position.X + usedCameraX) * SpriteEngine.GetDefaultScaleX(),
+                    (position.Y + usedCameraY) * SpriteEngine.GetDefaultScaleY())
                 , this.color, 0f, Vector2.Zero, this.scale * SpriteEngine.GetDefaultScaleNoStretch(), SpriteEffects.None, 0f);
         }
 
